@@ -5,7 +5,7 @@
 global windowHotkeys := Map()
 global numberOverlays := Map()
 
-; Create hotkeys for numbers 1-9
+; Create hotkeys for numbers 1-9 and navigation
 Loop 9 {
     ; Create assignment hotkeys (Alt+Ctrl+Number)
     assignHotkey := "^!" . A_Index
@@ -27,8 +27,8 @@ CreateOverlay(number, windowId) {
     ; Create new overlay
     overlay := Gui("-Caption +ToolWindow +AlwaysOnTop")
     overlay.BackColor := "2D2D2D"
-    overlay.SetFont("s12 cWhite", "Segoe UI")
-    overlay.Add("Text", "w30 h30 Center", number)
+    overlay.SetFont("s12", "Segoe UI")
+    overlay.Add("Text", "w30 h30 Center vNumberText cGray", number)
     
     ; Get window position
     WinGetPos(&x, &y, &w, &h, "ahk_id " windowId)
@@ -38,6 +38,23 @@ CreateOverlay(number, windowId) {
     
     ; Store overlay reference
     numberOverlays[number] := overlay
+}
+
+; Function to highlight active window's number
+UpdateOverlayHighlights() {
+    global numberOverlays, windowHotkeys
+    activeId := WinGetID("A")
+    
+    for number, windowInfo in windowHotkeys {
+        if numberOverlays.Has(number) {
+            overlay := numberOverlays[number]
+            if (windowInfo.id = activeId) {
+                overlay["NumberText"].SetFont("cLime")
+            } else {
+                overlay["NumberText"].SetFont("cGray")
+            }
+        }
+    }
 }
 
 ; Function to switch to window
@@ -56,7 +73,6 @@ SwitchToWindow(number, *) {
 AssignWindow(number, *) {
     global windowHotkeys
     
-    ; Get the current window
     activeWindow := WinGetTitle("A")
     if activeWindow = "" 
         return
@@ -75,6 +91,54 @@ AssignWindow(number, *) {
     ; Show tooltip
     ToolTip "Window assigned to Alt + " number
     SetTimer () => ToolTip(), -2000
+    
+    ; Update highlights
+    UpdateOverlayHighlights()
+}
+
+; Navigation hotkeys - simplified and using Alt+Period/Comma
+!.:: {  ; Alt+Period for next
+    global windowHotkeys
+    
+    ; Get current active window
+    activeId := WinExist("A")
+    currentNumber := 0
+    
+    ; Find current number
+    for number, windowInfo in windowHotkeys {
+        if (windowInfo.id = activeId) {
+            currentNumber := number
+            break
+        }
+    }
+    
+    ; If no current number found or at max, start from 1
+    nextNumber := (currentNumber = 0 || currentNumber = 9) ? 1 : currentNumber + 1
+    
+    ; Try to activate the next window
+    SwitchToWindow(nextNumber)
+}
+
+!,:: {  ; Alt+Comma for previous
+    global windowHotkeys
+    
+    ; Get current active window
+    activeId := WinExist("A")
+    currentNumber := 0
+    
+    ; Find current number
+    for number, windowInfo in windowHotkeys {
+        if (windowInfo.id = activeId) {
+            currentNumber := number
+            break
+        }
+    }
+    
+    ; If no current number found or at min, start from 9
+    prevNumber := (currentNumber = 0 || currentNumber = 1) ? 9 : currentNumber - 1
+    
+    ; Try to activate the previous window
+    SwitchToWindow(prevNumber)
 }
 
 ; Reset all windows (Ctrl+Alt+R)
@@ -93,19 +157,30 @@ AssignWindow(number, *) {
     SetTimer () => ToolTip(), -2000
 }
 
-; Monitor window position changes to update overlay positions
+; Monitor window position changes and focus
 SetTimer MonitorWindows, 100
 
 MonitorWindows() {
     global windowHotkeys, numberOverlays
+    static lastActiveWindow := ""
     
-    for number, windowInfo in windowHotkeys {
-        if WinExist("ahk_id " windowInfo.id) {
-            WinGetPos(&x, &y, &w, &h, "ahk_id " windowInfo.id)
-            if numberOverlays.Has(number) {
-                overlay := numberOverlays[number]
-                overlay.Show("x" x " y" (y + h - 30) " NoActivate")
+    try {
+        currentActive := WinExist("A")
+        if (currentActive && currentActive != lastActiveWindow) {
+            UpdateOverlayHighlights()
+            lastActiveWindow := currentActive
+        }
+        
+        for number, windowInfo in windowHotkeys {
+            if WinExist("ahk_id " windowInfo.id) {
+                WinGetPos(&x, &y, &w, &h, "ahk_id " windowInfo.id)
+                if numberOverlays.Has(number) {
+                    overlay := numberOverlays[number]
+                    overlay.Show("x" x " y" (y + h - 30) " NoActivate")
+                }
             }
         }
+    } catch Error {
+        return
     }
 }
