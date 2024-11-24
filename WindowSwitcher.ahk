@@ -96,10 +96,13 @@ AssignWindow(number, *) {
     UpdateOverlayHighlights()
 }
 
-; Navigation hotkeys - simplified and using Alt+Period/Comma
+; Navigation hotkeys - completely simplified
 !.:: {  ; Alt+Period for next
     global windowHotkeys
     
+    if (windowHotkeys.Count = 0)
+        return
+        
     ; Get current active window
     activeId := WinExist("A")
     currentNumber := 0
@@ -112,16 +115,39 @@ AssignWindow(number, *) {
         }
     }
     
-    ; If no current number found or at max, start from 1
-    nextNumber := (currentNumber = 0 || currentNumber = 9) ? 1 : currentNumber + 1
+    ; Find next window
+    if (currentNumber = 0) {
+        ; If current window isn't assigned, try number 1
+        if windowHotkeys.Has(1)
+            SwitchToWindow(1)
+        return
+    }
     
-    ; Try to activate the next window
-    SwitchToWindow(nextNumber)
+    ; Try next numbers sequentially
+    nextNumber := currentNumber + 1
+    while nextNumber <= 9 {
+        if windowHotkeys.Has(nextNumber) {
+            SwitchToWindow(nextNumber)
+            return
+        }
+        nextNumber++
+    }
+    
+    ; If we reached here, loop back to the beginning
+    Loop 9 {
+        if windowHotkeys.Has(A_Index) {
+            SwitchToWindow(A_Index)
+            break
+        }
+    }
 }
 
 !,:: {  ; Alt+Comma for previous
     global windowHotkeys
     
+    if (windowHotkeys.Count = 0)
+        return
+        
     ; Get current active window
     activeId := WinExist("A")
     currentNumber := 0
@@ -134,11 +160,32 @@ AssignWindow(number, *) {
         }
     }
     
-    ; If no current number found or at min, start from 9
-    prevNumber := (currentNumber = 0 || currentNumber = 1) ? 9 : currentNumber - 1
+    ; Find previous window
+    if (currentNumber = 0) {
+        ; If current window isn't assigned, try number 9
+        if windowHotkeys.Has(9)
+            SwitchToWindow(9)
+        return
+    }
     
-    ; Try to activate the previous window
-    SwitchToWindow(prevNumber)
+    ; Try previous numbers sequentially
+    prevNumber := currentNumber - 1
+    while prevNumber >= 1 {
+        if windowHotkeys.Has(prevNumber) {
+            SwitchToWindow(prevNumber)
+            return
+        }
+        prevNumber--
+    }
+    
+    ; If we reached here, loop back to the end
+    Loop 9 {
+        checkNumber := 10 - A_Index  ; Count down from 9 to 1
+        if windowHotkeys.Has(checkNumber) {
+            SwitchToWindow(checkNumber)
+            break
+        }
+    }
 }
 
 ; Reset all windows (Ctrl+Alt+R)
