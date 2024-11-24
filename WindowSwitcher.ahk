@@ -243,8 +243,19 @@ MonitorWindows() {
             lastActiveWindow := currentActive
         }
         
+        ; Check for closed windows and clean up
+        windowsToRemove := []
         for number, windowInfo in windowHotkeys {
-            if WinExist("ahk_id " windowInfo.id) {
+            if !WinExist("ahk_id " windowInfo.id) {
+                ; Window was closed, mark for removal
+                windowsToRemove.Push(number)
+                ; Destroy overlay if it exists
+                if numberOverlays.Has(number) {
+                    numberOverlays[number].Destroy()
+                    numberOverlays.Delete(number)
+                }
+            } else {
+                ; Update position for existing windows
                 WinGetPos(&x, &y, &w, &h, "ahk_id " windowInfo.id)
                 if numberOverlays.Has(number) {
                     overlay := numberOverlays[number]
@@ -252,6 +263,12 @@ MonitorWindows() {
                 }
             }
         }
+        
+        ; Remove closed windows from windowHotkeys
+        for number in windowsToRemove {
+            windowHotkeys.Delete(number)
+        }
+        
     } catch Error {
         return
     }
