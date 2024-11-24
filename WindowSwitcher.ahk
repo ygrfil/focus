@@ -16,7 +16,7 @@ Loop 9 {
     Hotkey switchHotkey, SwitchToWindow.Bind(A_Index)
 }
 
-; Function to create number overlay
+; Function to create number overlay with modern styling
 CreateOverlay(number, windowId) {
     ; Remove existing overlay for this number if exists
     if numberOverlays.Has(number) {
@@ -25,19 +25,40 @@ CreateOverlay(number, windowId) {
     }
 
     ; Create new overlay
-    overlay := Gui("-Caption +ToolWindow +AlwaysOnTop")
-    overlay.BackColor := "2D2D2D"
-    overlay.SetFont("s12", "Segoe UI")
-    overlay.Add("Text", "w30 h30 Center vNumberText cGray", number)
+    overlay := Gui("-Caption +ToolWindow +AlwaysOnTop +E0x20")  ; Layered window for transparency
+    
+    ; Modern theme colors
+    inactiveText := "BBBBBB" ; Light gray for inactive
+    activeText := "66BB6A"   ; Material design green for active
+    
+    ; Make background transparent
+    overlay.BackColor := "000000"  ; Will be made transparent
+    overlay.SetFont("s12 w600", "Segoe UI")  ; Semi-bold font, slightly larger
+    
+    ; Calculate dimensions
+    width := 20   ; Smaller width for just the number
+    height := 20  ; Smaller height for just the number
+    
+    ; Add just the number
+    overlay.Add("Text", "x0 y0 w" width " h" height " Center vNumberText c" inactiveText, number)
     
     ; Get window position
     WinGetPos(&x, &y, &w, &h, "ahk_id " windowId)
     
-    ; Position overlay at bottom-left
-    overlay.Show("x" x " y" (y + h - 30) " NoActivate")
+    ; Position overlay at bottom-left with margin
+    margin := 10
+    overlay.Show("x" (x + margin) " y" (y + h - height - margin) " NoActivate")
+    
+    ; Make background fully transparent, text semi-transparent
+    WinSetTransColor("000000", overlay)  ; Make background transparent
+    WinSetTransparent(200, overlay)      ; Set overall transparency
     
     ; Store overlay reference
     numberOverlays[number] := overlay
+    
+    ; Store colors for this overlay
+    overlay.activeColor := activeText
+    overlay.inactiveColor := inactiveText
 }
 
 ; Function to highlight active window's number
@@ -49,9 +70,13 @@ UpdateOverlayHighlights() {
         if numberOverlays.Has(number) {
             overlay := numberOverlays[number]
             if (windowInfo.id = activeId) {
-                overlay["NumberText"].SetFont("cLime")
+                ; Active window - use highlight color and more opacity
+                overlay["NumberText"].SetFont("c" overlay.activeColor)
+                WinSetTransparent(255, overlay)
             } else {
-                overlay["NumberText"].SetFont("cGray")
+                ; Inactive window - use subtle color and less opacity
+                overlay["NumberText"].SetFont("c" overlay.inactiveColor)
+                WinSetTransparent(180, overlay)
             }
         }
     }
